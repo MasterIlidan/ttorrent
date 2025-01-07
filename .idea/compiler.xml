@@ -16,15 +16,17 @@
         <sourceOutputDir name="build/generated-sources/annotations" />
         <sourceTestOutputDir name="build/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="ttorrent-tests" />
         <module name="ttorrent-common" />
         <module name="ttorrent-tracker" />
-        <module name="ttorrent-cli" />
-        <module name="ttorrent-network" />
         <module name="ttorrent-bencoding" />
         <module name="ttorrent-test-api" />
-        <module name="ttorrent-client" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="ttorrent-cli" target="1.8" />
+      <module name="ttorrent-client" target="1.8" />
+      <module name="ttorrent-network" target="1.8" />
+      <module name="ttorrent-tests" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>
