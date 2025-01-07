@@ -1,6 +1,8 @@
 package com.turn.ttorrent.tracker;
 
+import com.turn.ttorrent.common.TorrentLoggerFactory;
 import com.turn.ttorrent.common.protocol.AnnounceRequestMessage;
+import org.slf4j.Logger;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
@@ -14,7 +16,7 @@ public class TorrentsRepository {
 
   private final ReentrantLock[] myLocks;
   private final ConcurrentMap<String, TrackedTorrent> myTorrents;
-
+  private static final Logger logger = TorrentLoggerFactory.getLogger(Tracker.class);
   public TorrentsRepository(int locksCount) {
 
     if (locksCount <= 0) {
@@ -68,6 +70,8 @@ public class TorrentsRepository {
         trackedTorrent.collectUnfreshPeers(torrentExpireTimeoutSec);
         if (trackedTorrent.getPeers().size() == 0) {
           myTorrents.remove(trackedTorrent.getHexInfoHash());
+          logger.info("Unregistered torrent with hash {}",
+                  trackedTorrent.getHexInfoHash());
         }
       } finally {
         lockFor(trackedTorrent.getHexInfoHash()).unlock();
