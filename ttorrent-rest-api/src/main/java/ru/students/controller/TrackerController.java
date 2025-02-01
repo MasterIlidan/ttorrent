@@ -42,4 +42,9 @@ public class TrackerController {
         Map<String, Peers> peers = trackerService.getAllCountOfPeers();
         return new ResponseEntity<>(peers, HttpStatus.OK);
     }
+    @GetMapping("/getSizeOfTracker")
+    public ResponseEntity<Double> getSizeOfTracker() throws IOException {
+        Double trackerSize = trackerService.getAllTorrentsSize();
+        return new ResponseEntity<>(trackerSize, HttpStatus.OK);
+    }
 }

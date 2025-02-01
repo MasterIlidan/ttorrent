@@ -1,13 +1,16 @@
 package ru.students.service;
 
-import com.turn.ttorrent.tracker.TrackedPeer;
+import com.turn.ttorrent.common.TorrentMetadata;
+import com.turn.ttorrent.common.TorrentParser;
 import com.turn.ttorrent.tracker.TrackedTorrent;
 import com.turn.ttorrent.tracker.Tracker;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import ru.students.utils.Peers;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+@Slf4j
 @Service
 public class TrackerServiceImpl implements TrackerService {
     private final Tracker tracker;
@@ -43,6 +47,11 @@ public class TrackerServiceImpl implements TrackerService {
         File file = new File(String.valueOf(fileNameAndPath));
 
         TrackedTorrent trackedTorrent = TrackedTorrent.load(file);
+        TorrentMetadata torrentMetadata = new TorrentParser().parseFromFile(file);
+        log.info("Torrent name {} torrent count of pieces {} piece size {}",
+                torrentMetadata.getDirectoryName(),
+                torrentMetadata.getPiecesCount(),
+                torrentMetadata.getPieceLength());
 
         tracker.announce(trackedTorrent);
         return trackedTorrent.getHexInfoHash();
@@ -86,6 +95,27 @@ public class TrackerServiceImpl implements TrackerService {
                 peersMap.put(trackedTorrent.getHexInfoHash(), peers);
         }
         return peersMap;
+    }
+    @Override
+    public double getAllTorrentsSize() throws IOException {
+        FilenameFilter filter = new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.endsWith(".torrent");
+            }
+        };
+
+        double size = 0;
+
+        for (File f : new File("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging").listFiles(filter)) {
+            TorrentMetadata torrentMetadata = new TorrentParser().parseFromFile(f);
+            size += ((long) torrentMetadata.getPiecesCount() * ((double) torrentMetadata.getPieceLength() / 1024 / 1024)); //мегабайты
+            log.info("Torrent name {} torrent count of pieces {} piece size {}",
+                    torrentMetadata.getDirectoryName(),
+                    torrentMetadata.getPiecesCount(),
+                    torrentMetadata.getPieceLength());
+        }
+        return size;
     }
 
 

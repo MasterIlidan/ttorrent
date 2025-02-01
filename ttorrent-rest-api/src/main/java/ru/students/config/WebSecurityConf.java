@@ -27,6 +27,7 @@ public class WebSecurityConf {
                         .requestMatchers("/css/**").permitAll()
                         .requestMatchers("/forum").permitAll()
                         .requestMatchers("/getPeers").permitAll()
+                        .requestMatchers("/getSizeOfTracker").permitAll()
                         .anyRequest().authenticated())).formLogin(form ->
                         form.loginPage("/login")
                                 .loginProcessingUrl("/login")

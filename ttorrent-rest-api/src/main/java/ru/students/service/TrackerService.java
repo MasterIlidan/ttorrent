@@ -11,4 +11,6 @@ public interface TrackerService {
     String announce(MultipartFile torrentFile) throws IOException;
     Map<String, Peers> getCountOfPeers(String hash);
     void getPeers(String hash);
+
+    double getAllTorrentsSize() throws IOException;
 }
