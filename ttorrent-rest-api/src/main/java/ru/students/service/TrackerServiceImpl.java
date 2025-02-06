@@ -39,9 +39,7 @@ public class TrackerServiceImpl implements TrackerService {
      * Ошибка при чтении торрент-файла
      */
     public String announce(MultipartFile torrentFile) throws IOException {
-        StringBuilder fileNames = new StringBuilder();
         Path fileNameAndPath = Paths.get(STAGE_DIRECTORY, torrentFile.getOriginalFilename());
-        fileNames.append(torrentFile.getOriginalFilename());
         Files.write(fileNameAndPath, torrentFile.getBytes());
 
         File file = new File(String.valueOf(fileNameAndPath));
@@ -106,14 +104,16 @@ public class TrackerServiceImpl implements TrackerService {
         };
 
         double size = 0;
-
-        for (File f : new File("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging").listFiles(filter)) {
-            TorrentMetadata torrentMetadata = new TorrentParser().parseFromFile(f);
-            size += ((long) torrentMetadata.getPiecesCount() * ((double) torrentMetadata.getPieceLength() / 1024 / 1024)); //мегабайты
-            log.info("Torrent name {} torrent count of pieces {} piece size {}",
-                    torrentMetadata.getDirectoryName(),
-                    torrentMetadata.getPiecesCount(),
-                    torrentMetadata.getPieceLength());
+        File[] files = new File("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging").listFiles(filter);
+        if (files != null) {
+            for (File f : files) {
+                TorrentMetadata torrentMetadata = new TorrentParser().parseFromFile(f);
+                size += ((long) torrentMetadata.getPiecesCount() * ((double) torrentMetadata.getPieceLength() / 1024 / 1024)); //мегабайты
+                log.debug("Torrent name {} torrent count of pieces {} piece size {}",
+                        torrentMetadata.getDirectoryName(),
+                        torrentMetadata.getPiecesCount(),
+                        torrentMetadata.getPieceLength());
+            }
         }
         return size;
     }
