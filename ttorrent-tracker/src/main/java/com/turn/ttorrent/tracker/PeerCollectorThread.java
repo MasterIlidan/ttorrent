@@ -31,7 +31,7 @@ public class PeerCollectorThread extends Thread {
         break;
       }
       //Cleanup expired torrents
-      myTorrentsRepository.cleanup(myTorrentExpireTimeoutSec);
+      //myTorrentsRepository.cleanup(myTorrentExpireTimeoutSec);
     }
   }
 }

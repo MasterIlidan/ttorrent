@@ -243,10 +243,16 @@ public class Tracker {
       logger.warn("Tracker already announced torrent with hash {}.", existing.getHexInfoHash());
       return existing;
     }
-
     myTorrentsRepository.putIfAbsent(torrent.getHexInfoHash(), torrent);
     logger.info("Registered new torrent with hash {}.", torrent.getHexInfoHash());
     return torrent;
+  }
+
+  public List<TrackedTorrent> getInactiveTorrents() {
+    return myTorrentsRepository.cleanup(10);
+  }
+  public synchronized void unregisterTorrent(TrackedTorrent torrent) {
+    myTorrentsRepository.removeTorrent(torrent.getHexInfoHash());
   }
 
   /**
