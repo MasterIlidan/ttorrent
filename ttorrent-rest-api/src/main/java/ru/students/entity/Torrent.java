@@ -32,6 +32,6 @@ public class Torrent {
     private Timestamp inactiveSince;
 
     public enum Status {
-        NEW, ACTIVE, INACTIVE
+        NEW, ACTIVE, INACTIVE, ARCHIVE
     }
 }

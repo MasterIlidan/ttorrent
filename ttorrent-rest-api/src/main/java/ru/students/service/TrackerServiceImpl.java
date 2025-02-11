@@ -4,6 +4,7 @@ import com.turn.ttorrent.common.TorrentMetadata;
 import com.turn.ttorrent.common.TorrentParser;
 import com.turn.ttorrent.tracker.TrackedTorrent;
 import com.turn.ttorrent.tracker.Tracker;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
@@ -165,7 +166,7 @@ public class TrackerServiceImpl implements TrackerService {
             if (found) {
                 torrent.setInactiveSince(new Timestamp(new Date().getTime()));
                 torrent.setStatus(Torrent.Status.INACTIVE);
-                postNewStatusToForum(torrent, Status.INACTIVE);
+                postNewStatusToForum(torrent, Torrent.Status.INACTIVE);
                 torrentRepository.save(torrent);
             }
         }
@@ -186,7 +187,7 @@ public class TrackerServiceImpl implements TrackerService {
 
                 if (diff > timeout) {
 
-                    postNewStatusToForum(inactiveTorrent, Status.ARCHIVE);
+                    postNewStatusToForum(inactiveTorrent, Torrent.Status.ARCHIVE);
 
                     log.info("Torrent {} inactive for {} hours and removed", inactiveTorrent.getHashInfo(), diff);
                     tracker.unregisterTorrent(inactiveTorrent.getHashInfo());
@@ -200,7 +201,7 @@ public class TrackerServiceImpl implements TrackerService {
         }
     }
 
-    private void postNewStatusToForum(Torrent trackedTorrent, Status status) {
+    private void postNewStatusToForum(Torrent trackedTorrent, Torrent.Status status) {
         RestTemplate restTemplate = new RestTemplate();
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
@@ -222,7 +223,7 @@ public class TrackerServiceImpl implements TrackerService {
                     inactiveTorrent -> inactiveTorrent.getHexInfoHash().equals(inactiveTorrentInDatabase.getHashInfo()));
 
             if (!found) {
-                postNewStatusToForum(inactiveTorrentInDatabase, Status.ACTIVE);
+                postNewStatusToForum(inactiveTorrentInDatabase, Torrent.Status.ACTIVE);
                 //inactiveTorrentsRepository.delete(inactiveTorrentInDatabase);
                 inactiveTorrentInDatabase.setStatus(Torrent.Status.ACTIVE);
                 inactiveTorrentInDatabase.setInactiveSince(null);
@@ -234,9 +235,9 @@ public class TrackerServiceImpl implements TrackerService {
         }
     }
 
-
-    enum Status {
-        INACTIVE, ACTIVE, ARCHIVE
+    @PreDestroy
+    public void shutdown(){
+        log.info("Tracker stopped");
+        tracker.stop();
     }
-
 }
