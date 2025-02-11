@@ -15,6 +15,7 @@ import java.sql.Timestamp;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Deprecated(forRemoval = true)
 public class InactiveTorrent {
     @Id
     @NotNull

@@ -25,16 +25,24 @@ public class TrackerController {
         this.trackerService = trackerService;
     }
 
-    @GetMapping("/announce")
-    public ResponseEntity startTracker() throws IOException {
+    @PostMapping("/announce")
+    public ResponseEntity startTracker(@RequestParam String hashInfo) throws IOException {
+        trackerService.announce(hashInfo);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> registerNewTorrent(@RequestParam("torrentFile") MultipartFile torrentFile) throws IOException {
+    public ResponseEntity<String> registerNewTorrent(@RequestParam("torrentFile") MultipartFile torrentFile,
+                                                     @RequestParam("name") String name) throws IOException {
 
-        return new ResponseEntity<>(trackerService.announce(torrentFile),
-                HttpStatusCode.valueOf(200));
+        return new ResponseEntity<>(trackerService.registerNewTorrent(torrentFile, name),
+                HttpStatus.OK);
+    }
+
+    @PostMapping("/getHash")
+    public ResponseEntity<String> getHash(@RequestParam("torrentFile") MultipartFile torrentFile) throws IOException {
+        String hash = trackerService.getHash(torrentFile);
+        return new ResponseEntity<>(hash, HttpStatus.OK);
     }
 
     @GetMapping("/getPeers")

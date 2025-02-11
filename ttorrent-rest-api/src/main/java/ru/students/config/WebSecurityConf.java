@@ -28,6 +28,8 @@ public class WebSecurityConf {
                         .requestMatchers("/forum").permitAll()
                         .requestMatchers("/getPeers").permitAll()
                         .requestMatchers("/getSizeOfTracker").permitAll()
+                        .requestMatchers("/getHash").permitAll()
+                        .requestMatchers("/announce").permitAll()
                         .anyRequest().authenticated())).formLogin(form ->
                         form.loginPage("/login")
                                 .loginProcessingUrl("/login")

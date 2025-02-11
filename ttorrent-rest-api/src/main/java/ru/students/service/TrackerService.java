@@ -8,9 +8,13 @@ import java.util.Map;
 
 public interface TrackerService {
 
-    String announce(MultipartFile torrentFile) throws IOException;
+
+    String announce(String hashInfo) throws IOException;
+
     Map<String, Peers> getCountOfPeers(String hash);
     void getPeers(String hash);
+
+    String getHash(MultipartFile torrentFile) throws IOException;
 
     double getAllTorrentsSize() throws IOException;
 }

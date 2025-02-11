@@ -15,7 +15,9 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import ru.students.entity.InactiveTorrent;
+import ru.students.entity.Torrent;
 import ru.students.repository.InactiveTorrentsRepository;
+import ru.students.repository.TorrentRepository;
 import ru.students.utils.Peers;
 
 import java.io.File;
@@ -36,10 +38,12 @@ public class TrackerServiceImpl implements TrackerService {
     private final Tracker tracker;
     public static String STAGE_DIRECTORY = System.getProperty("user.dir") + "/staging";
     private final InactiveTorrentsRepository inactiveTorrentsRepository;
+    private final TorrentRepository torrentRepository;
 
-    public TrackerServiceImpl(Tracker tracker, InactiveTorrentsRepository inactiveTorrentsRepository) {
+    public TrackerServiceImpl(Tracker tracker, InactiveTorrentsRepository inactiveTorrentsRepository, TorrentRepository torrentRepository) {
         this.tracker = tracker;
         this.inactiveTorrentsRepository = inactiveTorrentsRepository;
+        this.torrentRepository = torrentRepository;
     }
 
     /**
@@ -47,20 +51,39 @@ public class TrackerServiceImpl implements TrackerService {
      * @return Хеш сумма торрента
      * @throws IOException Ошибка при чтении торрент-файла
      */
-    public String announce(MultipartFile torrentFile) throws IOException {
-        Path fileNameAndPath = Paths.get(STAGE_DIRECTORY, torrentFile.getOriginalFilename());
-        Files.write(fileNameAndPath, torrentFile.getBytes());
-
-        File file = new File(String.valueOf(fileNameAndPath));
-
-        TrackedTorrent trackedTorrent = TrackedTorrent.load(file);
+    @Override
+    public String announce(String hashInfo) throws IOException {
+        Torrent torrent = torrentRepository.findByHashInfoAndStatus(hashInfo, Torrent.Status.NEW);
+        File file = new File(String.valueOf(Paths.get(STAGE_DIRECTORY, torrent.getFileName())));
         TorrentMetadata torrentMetadata = new TorrentParser().parseFromFile(file);
-        log.info("Torrent name {} torrent count of pieces {} piece size {}",
+        log.info("Torrent name {} torrent count of pieces {} piece size {} announcing...",
                 torrentMetadata.getDirectoryName(),
                 torrentMetadata.getPiecesCount(),
                 torrentMetadata.getPieceLength());
+
+        TrackedTorrent trackedTorrent = TrackedTorrent.load(file);
+        torrent.setStatus(Torrent.Status.ACTIVE);
+
         tracker.announce(trackedTorrent);
+
+        torrentRepository.save(torrent);
         return trackedTorrent.getHexInfoHash();
+    }
+
+    public String registerNewTorrent(MultipartFile torrentFile, String name) throws IOException {
+        TorrentMetadata torrentMetadata = new TorrentParser().parse(torrentFile.getBytes());
+        Path fileNameAndPath = Paths.get(STAGE_DIRECTORY, name + ".torrent");
+        Files.write(fileNameAndPath, torrentFile.getBytes());
+
+        Torrent torrent = new Torrent();
+        torrent.setStatus(Torrent.Status.NEW);
+        torrent.setHashInfo(torrentMetadata.getHexInfoHash());
+        torrent.setFileName(name + ".torrent");
+        torrent.setRegistered(new Timestamp(new Date().getTime()));
+
+        torrentRepository.save(torrent);
+
+        return torrentMetadata.getHexInfoHash();
     }
 
     /**
@@ -98,6 +121,12 @@ public class TrackerServiceImpl implements TrackerService {
             peersMap.put(trackedTorrent.getHexInfoHash(), peers);
         }
         return peersMap;
+    }
+
+    @Override
+    public String getHash(MultipartFile torrentFile) throws IOException {
+        TorrentMetadata torrentMetadata = new TorrentParser().parse(torrentFile.getBytes());
+        return torrentMetadata.getHexInfoHash();
     }
 
     @Override
@@ -213,6 +242,7 @@ public class TrackerServiceImpl implements TrackerService {
             log.debug("Torrent {} don't have peers. Keep this torrent in inactive database", inactiveTorrentInDatabase.getHash());
         }
     }
+
 
     enum Status {
         INACTIVE, ACTIVE, ARCHIVE
