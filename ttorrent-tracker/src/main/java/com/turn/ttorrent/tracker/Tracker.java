@@ -249,7 +249,7 @@ public class Tracker {
   }
 
   public List<TrackedTorrent> getInactiveTorrents() {
-    return myTorrentsRepository.cleanup(10);
+    return myTorrentsRepository.cleanup(300);
   }
   public synchronized void unregisterTorrent(TrackedTorrent torrent) {
     myTorrentsRepository.removeTorrent(torrent.getHexInfoHash());

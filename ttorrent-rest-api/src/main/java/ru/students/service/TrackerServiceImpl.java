@@ -5,9 +5,14 @@ import com.turn.ttorrent.common.TorrentParser;
 import com.turn.ttorrent.tracker.TrackedTorrent;
 import com.turn.ttorrent.tracker.Tracker;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import ru.students.entity.InactiveTorrent;
 import ru.students.repository.InactiveTorrentsRepository;
@@ -38,13 +43,9 @@ public class TrackerServiceImpl implements TrackerService {
     }
 
     /**
-     *
-     * @param torrentFile
-     * Полученный торрент-файл от сервиса форума
-     * @return
-     * Хеш сумма торрента
-     * @throws IOException
-     * Ошибка при чтении торрент-файла
+     * @param torrentFile Полученный торрент-файл от сервиса форума
+     * @return Хеш сумма торрента
+     * @throws IOException Ошибка при чтении торрент-файла
      */
     public String announce(MultipartFile torrentFile) throws IOException {
         Path fileNameAndPath = Paths.get(STAGE_DIRECTORY, torrentFile.getOriginalFilename());
@@ -63,11 +64,8 @@ public class TrackerServiceImpl implements TrackerService {
     }
 
     /**
-     *
-     * @param hash
-     * Хеш сумма торрента
-     * @return
-     * Количество активных пиров (сидеров и личеров)
+     * @param hash Хеш сумма торрента
+     * @return Количество активных пиров (сидеров и личеров)
      */
     @Override
     public Map<String, Peers> getCountOfPeers(String hash) {
@@ -90,17 +88,18 @@ public class TrackerServiceImpl implements TrackerService {
     }
 
     public Map<String, Peers> getAllCountOfPeers() {
-        Map<String,Peers> peersMap = new HashMap<>();
+        Map<String, Peers> peersMap = new HashMap<>();
 
         for (TrackedTorrent trackedTorrent : tracker.getTrackedTorrents()) {
-                Peers peers = new Peers();
-                peers.setLeechers(trackedTorrent.leechers());
-                peers.setSeeders(trackedTorrent.seeders());
+            Peers peers = new Peers();
+            peers.setLeechers(trackedTorrent.leechers());
+            peers.setSeeders(trackedTorrent.seeders());
 
-                peersMap.put(trackedTorrent.getHexInfoHash(), peers);
+            peersMap.put(trackedTorrent.getHexInfoHash(), peers);
         }
         return peersMap;
     }
+
     @Override
     public double getAllTorrentsSize() throws IOException {
         FilenameFilter filter = new FilenameFilter() {
@@ -134,13 +133,14 @@ public class TrackerServiceImpl implements TrackerService {
         log.info("Found {} inactive torrents", inactiveTorrents.size());
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        for (TrackedTorrent trackedTorrent:inactiveTorrents) {
+        for (TrackedTorrent trackedTorrent : inactiveTorrents) {
             if (!inactiveTorrentsRepository.existsByHash(trackedTorrent.getHexInfoHash())) {
                 log.debug("Found inactive torrent. Hash: {}", trackedTorrent.getHexInfoHash());
                 InactiveTorrent inactiveTorrent = new InactiveTorrent();
                 inactiveTorrent.setInactiveSince(new Timestamp(new Date().getTime()));
                 inactiveTorrent.setHash(trackedTorrent.getHexInfoHash());
                 inactiveTorrentsRepository.save(inactiveTorrent);
+                postNewStatusToForum(trackedTorrent, Status.INACTIVE);
                 continue;
             }
             Optional<InactiveTorrent> optionalInactiveTorrent = inactiveTorrentsRepository.findById(trackedTorrent.getHexInfoHash());
@@ -150,12 +150,9 @@ public class TrackerServiceImpl implements TrackerService {
             }
             InactiveTorrent inactiveTorrent = optionalInactiveTorrent.get();
 
-            deleteTorrentByInactiveTimeout(trackedTorrent, sdf, inactiveTorrent, 24);
+            deleteTorrentByInactiveTimeout(trackedTorrent, sdf, inactiveTorrent, 2);
 
         }
-
-
-
 
 
     }
@@ -165,10 +162,14 @@ public class TrackerServiceImpl implements TrackerService {
             //sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
             Date date = sdf.parse(inactiveTorrent.getInactiveSince().toString());
             Date now = new Date();
-            long diff = TimeUnit.HOURS.convert(now.compareTo(date), TimeUnit.MILLISECONDS);
+            //long diff = TimeUnit.HOURS.convert(now.compareTo(date), TimeUnit.MILLISECONDS);
+            long diff = TimeUnit.MINUTES.convert(now.getTime() - date.getTime(), TimeUnit.MILLISECONDS);
+
+            if (diff > timeout) {
+
+                postNewStatusToForum(trackedTorrent, Status.ARCHIVE);
 
 
-            if(diff > timeout) {
                 log.info("Torrent {} inactive for {} hours and removed", trackedTorrent.getHexInfoHash(), diff);
                 tracker.unregisterTorrent(trackedTorrent);
                 inactiveTorrentsRepository.deleteById(trackedTorrent.getHexInfoHash());
@@ -180,17 +181,31 @@ public class TrackerServiceImpl implements TrackerService {
         }
     }
 
+    private void postNewStatusToForum(TrackedTorrent trackedTorrent, Status status) {
+        RestTemplate restTemplate = new RestTemplate();
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("hash", trackedTorrent.getHexInfoHash());
+        body.add("status", status.toString());
+
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body);
+
+        ResponseEntity responseEntity = restTemplate.postForEntity(
+                "http://localhost:8080/inactivePosts",requestEntity , ResponseEntity.class);
+    }
+
     private void removeActiveTorrentsFromInactiveDatabase(List<TrackedTorrent> inactiveTorrents) {
         List<InactiveTorrent> inactiveTorrentDatabase = inactiveTorrentsRepository.findAll();
-        for (InactiveTorrent inactiveTorrentInDatabase:inactiveTorrentDatabase) {
+        for (InactiveTorrent inactiveTorrentInDatabase : inactiveTorrentDatabase) {
             boolean found = false;
-            for (TrackedTorrent inactiveTorrent:inactiveTorrents) {
+            for (TrackedTorrent inactiveTorrent : inactiveTorrents) {
                 if (inactiveTorrentInDatabase.getHash().equals(inactiveTorrent.getHexInfoHash())) {
                     found = true;
                     break;
                 }
             }
             if (!found) {
+                postNewStatusToForum(tracker.getTrackedTorrent(inactiveTorrentInDatabase.getHash()), Status.ACTIVE);
                 inactiveTorrentsRepository.delete(inactiveTorrentInDatabase);
                 log.debug("Torrent {} become active and removed from inactive database...", inactiveTorrentInDatabase.getHash());
                 continue;
@@ -199,6 +214,8 @@ public class TrackerServiceImpl implements TrackerService {
         }
     }
 
-
+    enum Status {
+        INACTIVE, ACTIVE, ARCHIVE
+    }
 
 }
