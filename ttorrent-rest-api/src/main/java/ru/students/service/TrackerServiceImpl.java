@@ -14,9 +14,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
-import ru.students.entity.InactiveTorrent;
 import ru.students.entity.Torrent;
-import ru.students.repository.InactiveTorrentsRepository;
 import ru.students.repository.TorrentRepository;
 import ru.students.utils.Peers;
 
@@ -37,12 +35,10 @@ import java.util.concurrent.TimeUnit;
 public class TrackerServiceImpl implements TrackerService {
     private final Tracker tracker;
     public static String STAGE_DIRECTORY = System.getProperty("user.dir") + "/staging";
-    private final InactiveTorrentsRepository inactiveTorrentsRepository;
     private final TorrentRepository torrentRepository;
 
-    public TrackerServiceImpl(Tracker tracker, InactiveTorrentsRepository inactiveTorrentsRepository, TorrentRepository torrentRepository) {
+    public TrackerServiceImpl(Tracker tracker, TorrentRepository torrentRepository) {
         this.tracker = tracker;
-        this.inactiveTorrentsRepository = inactiveTorrentsRepository;
         this.torrentRepository = torrentRepository;
     }
 
@@ -155,66 +151,60 @@ public class TrackerServiceImpl implements TrackerService {
 
     @Scheduled(cron = "*/20 * * * * *")
     @Async
-    public void getInactiveTorrents() {
+    public void updateTorrentStatus() {
         List<TrackedTorrent> inactiveTorrents = tracker.getInactiveTorrents();
-        removeActiveTorrentsFromInactiveDatabase(inactiveTorrents);
-
         log.info("Found {} inactive torrents", inactiveTorrents.size());
 
+        makeInactiveTorrentsActive(inactiveTorrents);
+
+        List<Torrent> torrents = torrentRepository.findAllByStatus(Torrent.Status.ACTIVE);
+
+        for (Torrent torrent : torrents) {
+            boolean found = inactiveTorrents.stream().anyMatch(
+                    inactiveTorrent -> inactiveTorrent.getHexInfoHash().equals(torrent.getHashInfo()));
+            if (found) {
+                torrent.setInactiveSince(new Timestamp(new Date().getTime()));
+                torrent.setStatus(Torrent.Status.INACTIVE);
+                postNewStatusToForum(torrent, Status.INACTIVE);
+                torrentRepository.save(torrent);
+            }
+        }
+    }
+    @Scheduled(cron = "*/30 * * * * *")
+    @Async
+    public void deleteTorrentByInactiveTimeout() {
+        int timeout = 2;
+        List<Torrent> inactiveTorrents = torrentRepository.findAllByStatus(Torrent.Status.INACTIVE);
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        for (TrackedTorrent trackedTorrent : inactiveTorrents) {
-            if (!inactiveTorrentsRepository.existsByHash(trackedTorrent.getHexInfoHash())) {
-                log.debug("Found inactive torrent. Hash: {}", trackedTorrent.getHexInfoHash());
-                InactiveTorrent inactiveTorrent = new InactiveTorrent();
-                inactiveTorrent.setInactiveSince(new Timestamp(new Date().getTime()));
-                inactiveTorrent.setHash(trackedTorrent.getHexInfoHash());
-                inactiveTorrentsRepository.save(inactiveTorrent);
-                postNewStatusToForum(trackedTorrent, Status.INACTIVE);
-                continue;
+        for (Torrent inactiveTorrent:inactiveTorrents) {
+            try {
+                //sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+                Date inactiveSince = sdf.parse(inactiveTorrent.getInactiveSince().toString());
+                Date now = new Date();
+                //long diff = TimeUnit.HOURS.convert(now.compareTo(inactiveSince), TimeUnit.MILLISECONDS);
+                long diff = TimeUnit.MINUTES.convert(now.getTime() - inactiveSince.getTime(), TimeUnit.MILLISECONDS);
+
+                if (diff > timeout) {
+
+                    postNewStatusToForum(inactiveTorrent, Status.ARCHIVE);
+
+                    log.info("Torrent {} inactive for {} hours and removed", inactiveTorrent.getHashInfo(), diff);
+                    tracker.unregisterTorrent(inactiveTorrent.getHashInfo());
+                    torrentRepository.delete(inactiveTorrent);
+                }
+                log.debug("Torrent {} inactive for {} hours", inactiveTorrent.getHashInfo(), diff);
+
+            } catch (ParseException e) {
+                log.error("Error parse timestamp", e);
             }
-            Optional<InactiveTorrent> optionalInactiveTorrent = inactiveTorrentsRepository.findById(trackedTorrent.getHexInfoHash());
-            if (optionalInactiveTorrent.isEmpty()) {
-                log.warn("Torrent inactive, existed in database, but now gone...");
-                continue;
-            }
-            InactiveTorrent inactiveTorrent = optionalInactiveTorrent.get();
-
-            deleteTorrentByInactiveTimeout(trackedTorrent, sdf, inactiveTorrent, 2);
-
-        }
-
-
-    }
-
-    private void deleteTorrentByInactiveTimeout(TrackedTorrent trackedTorrent, SimpleDateFormat sdf, InactiveTorrent inactiveTorrent, int timeout) {
-        try {
-            //sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
-            Date date = sdf.parse(inactiveTorrent.getInactiveSince().toString());
-            Date now = new Date();
-            //long diff = TimeUnit.HOURS.convert(now.compareTo(date), TimeUnit.MILLISECONDS);
-            long diff = TimeUnit.MINUTES.convert(now.getTime() - date.getTime(), TimeUnit.MILLISECONDS);
-
-            if (diff > timeout) {
-
-                postNewStatusToForum(trackedTorrent, Status.ARCHIVE);
-
-
-                log.info("Torrent {} inactive for {} hours and removed", trackedTorrent.getHexInfoHash(), diff);
-                tracker.unregisterTorrent(trackedTorrent);
-                inactiveTorrentsRepository.deleteById(trackedTorrent.getHexInfoHash());
-            }
-            log.info("Torrent {} inactive for {} hours", trackedTorrent.getHexInfoHash(), diff);
-
-        } catch (ParseException e) {
-            log.error("Error parse timestamp", e);
         }
     }
 
-    private void postNewStatusToForum(TrackedTorrent trackedTorrent, Status status) {
+    private void postNewStatusToForum(Torrent trackedTorrent, Status status) {
         RestTemplate restTemplate = new RestTemplate();
 
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("hash", trackedTorrent.getHexInfoHash());
+        body.add("hash", trackedTorrent.getHashInfo());
         body.add("status", status.toString());
 
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body);
@@ -223,23 +213,24 @@ public class TrackerServiceImpl implements TrackerService {
                 "http://localhost:8080/inactivePosts",requestEntity , ResponseEntity.class);
     }
 
-    private void removeActiveTorrentsFromInactiveDatabase(List<TrackedTorrent> inactiveTorrents) {
-        List<InactiveTorrent> inactiveTorrentDatabase = inactiveTorrentsRepository.findAll();
-        for (InactiveTorrent inactiveTorrentInDatabase : inactiveTorrentDatabase) {
-            boolean found = false;
-            for (TrackedTorrent inactiveTorrent : inactiveTorrents) {
-                if (inactiveTorrentInDatabase.getHash().equals(inactiveTorrent.getHexInfoHash())) {
-                    found = true;
-                    break;
-                }
-            }
+    private void makeInactiveTorrentsActive(List<TrackedTorrent> inactiveTorrents) {
+        List<Torrent> inactiveTorrentDatabase = torrentRepository.findAllByStatus(Torrent.Status.INACTIVE);
+        log.info("Total count of inactive torrents is {}", inactiveTorrentDatabase.size());
+
+        for (Torrent inactiveTorrentInDatabase : inactiveTorrentDatabase) {
+            boolean found = inactiveTorrents.stream().anyMatch(
+                    inactiveTorrent -> inactiveTorrent.getHexInfoHash().equals(inactiveTorrentInDatabase.getHashInfo()));
+
             if (!found) {
-                postNewStatusToForum(tracker.getTrackedTorrent(inactiveTorrentInDatabase.getHash()), Status.ACTIVE);
-                inactiveTorrentsRepository.delete(inactiveTorrentInDatabase);
-                log.debug("Torrent {} become active and removed from inactive database...", inactiveTorrentInDatabase.getHash());
+                postNewStatusToForum(inactiveTorrentInDatabase, Status.ACTIVE);
+                //inactiveTorrentsRepository.delete(inactiveTorrentInDatabase);
+                inactiveTorrentInDatabase.setStatus(Torrent.Status.ACTIVE);
+                inactiveTorrentInDatabase.setInactiveSince(null);
+                torrentRepository.save(inactiveTorrentInDatabase);
+                log.debug("Torrent {} become active", inactiveTorrentInDatabase.getHashInfo());
                 continue;
             }
-            log.debug("Torrent {} don't have peers. Keep this torrent in inactive database", inactiveTorrentInDatabase.getHash());
+            log.debug("Torrent {} don't have peers. Keep this torrent inactive", inactiveTorrentInDatabase.getHashInfo());
         }
     }
 
