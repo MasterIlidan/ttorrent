@@ -7,10 +7,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import ru.students.entity.Torrent;
+import ru.students.repository.TorrentRepository;
 
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.List;
 
 @Configuration
 public class WebSecurityConf {
@@ -40,7 +44,7 @@ public class WebSecurityConf {
     }
 
     @Bean
-    public Tracker createTracker() throws IOException {
+    public Tracker createTracker(TorrentRepository torrentRepository) throws IOException {
         Tracker tracker = new Tracker(6969);
         FilenameFilter filter = new FilenameFilter() {
             @Override
@@ -48,9 +52,11 @@ public class WebSecurityConf {
                 return name.endsWith(".torrent");
             }
         };
-
-        for (File f : new File("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging").listFiles(filter)) {
-            tracker.announce(TrackedTorrent.load(f));
+        List<Torrent> torrentList = torrentRepository.findAll();
+        for (Torrent torrent:torrentList) {
+            if (torrent.getStatus().equals(Torrent.Status.NEW)) continue;
+            File file = Paths.get("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging", torrent.getFileName()).toFile();
+            tracker.announce(TrackedTorrent.load(file));
         }
 
 //Also you can enable accepting foreign torrents.
