@@ -11,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
@@ -44,7 +46,7 @@ public class TrackerServiceImpl implements TrackerService {
     }
 
     /**
-     * @param torrentFile Полученный торрент-файл от сервиса форума
+     * @param hashInfo Хеш раздачи, которую нужно анонсировать. Она должна быть в базе со статусом NEW
      * @return Хеш сумма торрента
      * @throws IOException Ошибка при чтении торрент-файла
      */
@@ -174,7 +176,7 @@ public class TrackerServiceImpl implements TrackerService {
     @Scheduled(cron = "*/30 * * * * *")
     @Async
     public void deleteTorrentByInactiveTimeout() {
-        int timeout = 2;
+        int timeout = 24;
         List<Torrent> inactiveTorrents = torrentRepository.findAllByStatus(Torrent.Status.INACTIVE);
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         for (Torrent inactiveTorrent:inactiveTorrents) {
@@ -182,8 +184,8 @@ public class TrackerServiceImpl implements TrackerService {
                 //sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
                 Date inactiveSince = sdf.parse(inactiveTorrent.getInactiveSince().toString());
                 Date now = new Date();
-                //long diff = TimeUnit.HOURS.convert(now.compareTo(inactiveSince), TimeUnit.MILLISECONDS);
-                long diff = TimeUnit.MINUTES.convert(now.getTime() - inactiveSince.getTime(), TimeUnit.MILLISECONDS);
+                long diff = TimeUnit.HOURS.convert(now.getTime() - inactiveSince.getTime(), TimeUnit.MILLISECONDS);
+                //long diff = TimeUnit.MINUTES.convert(now.getTime() - inactiveSince.getTime(), TimeUnit.MILLISECONDS);
 
                 if (diff > timeout) {
 
@@ -233,6 +235,17 @@ public class TrackerServiceImpl implements TrackerService {
             }
             log.debug("Torrent {} don't have peers. Keep this torrent inactive", inactiveTorrentInDatabase.getHashInfo());
         }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true, noRollbackFor = Exception.class)
+    public boolean deleteTorrent(String hash) throws IOException {
+        Torrent torrent = torrentRepository.findByHashInfo(hash);
+        if (torrent == null) return false;
+        torrentRepository.deleteAllByHashInfo(torrent.getHashInfo());
+        boolean deleteSuccess = Files.deleteIfExists(Paths.get("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging", torrent.getFileName()));
+        log.info("Удаление файла {} торрента {} {}", torrent.getFileName(), torrent.getHashInfo(), deleteSuccess);
+        return true;
     }
 
     @PreDestroy

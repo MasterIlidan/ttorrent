@@ -34,6 +34,7 @@ public class WebSecurityConf {
                         .requestMatchers("/getSizeOfTracker").permitAll()
                         .requestMatchers("/getHash").permitAll()
                         .requestMatchers("/announce").permitAll()
+                        .requestMatchers("/deleteTorrent/**").permitAll()
                         .anyRequest().authenticated())).formLogin(form ->
                         form.loginPage("/login")
                                 .loginProcessingUrl("/login")

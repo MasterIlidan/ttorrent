@@ -12,4 +12,12 @@ public interface TorrentRepository extends JpaRepository<Torrent, Long> {
     Torrent findByHashInfoAndStatus(String hashInfo, Torrent.Status status);
 
     List<Torrent> findAllByStatus(Torrent.Status status);
+
+    void deleteByHashInfo(String hashInfo);
+
+    List<Torrent> findAllByHashInfo(String hashInfo);
+
+    Torrent findByHashInfo(String hashInfo);
+
+    void deleteAllByHashInfo(String hashInfo);
 }

@@ -1,12 +1,10 @@
 package ru.students.controller;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import ru.students.service.TrackerServiceImpl;
 import ru.students.utils.Peers;
@@ -15,6 +13,7 @@ import java.io.IOException;
 import java.util.Map;
 
 
+@Slf4j
 @Controller
 public class TrackerController {
 
@@ -37,6 +36,16 @@ public class TrackerController {
 
         return new ResponseEntity<>(trackerService.registerNewTorrent(torrentFile, name),
                 HttpStatus.OK);
+    }
+    @DeleteMapping("/deleteTorrent/{hash}")
+    public ResponseEntity<String> deleteTorrent(@PathVariable String hash) throws IOException {
+        boolean success = trackerService.deleteTorrent(hash);
+        if (!success) {
+            log.warn("Раздача {} для удаления не найдена", hash);
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        log.info("Удалена раздача {}", hash);
+        return new ResponseEntity<>(HttpStatus.OK);
     }
 
     @PostMapping("/getHash")

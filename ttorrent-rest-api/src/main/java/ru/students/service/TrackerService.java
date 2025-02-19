@@ -17,4 +17,6 @@ public interface TrackerService {
     String getHash(MultipartFile torrentFile) throws IOException;
 
     double getAllTorrentsSize() throws IOException;
+
+    boolean deleteTorrent(String hash) throws IOException;
 }
