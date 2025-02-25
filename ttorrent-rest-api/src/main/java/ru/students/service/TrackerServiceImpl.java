@@ -71,6 +71,12 @@ public class TrackerServiceImpl implements TrackerService {
 
     public String registerNewTorrent(MultipartFile torrentFile, String name) throws IOException {
         TorrentMetadata torrentMetadata = new TorrentParser().parse(torrentFile.getBytes());
+
+        if (torrentRepository.existsByHashInfo(torrentMetadata.getHexInfoHash())) {
+            log.warn("Раздача с таким хешем уже есть на трекере, регистрация отклонена");
+            return "";
+        }
+
         Path fileNameAndPath = Paths.get(STAGE_DIRECTORY, name + ".torrent");
         Files.write(fileNameAndPath, torrentFile.getBytes());
 

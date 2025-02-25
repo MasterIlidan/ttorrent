@@ -33,8 +33,11 @@ public class TrackerController {
     @PostMapping("/register")
     public ResponseEntity<String> registerNewTorrent(@RequestParam("torrentFile") MultipartFile torrentFile,
                                                      @RequestParam("name") String name) throws IOException {
-
-        return new ResponseEntity<>(trackerService.registerNewTorrent(torrentFile, name),
+        String torrentHash = trackerService.registerNewTorrent(torrentFile, name);
+        if (torrentHash.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.CONFLICT);
+        }
+        return new ResponseEntity<>(torrentHash,
                 HttpStatus.OK);
     }
     @DeleteMapping("/deleteTorrent/{hash}")

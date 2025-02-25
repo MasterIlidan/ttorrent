@@ -20,4 +20,6 @@ public interface TorrentRepository extends JpaRepository<Torrent, Long> {
     Torrent findByHashInfo(String hashInfo);
 
     void deleteAllByHashInfo(String hashInfo);
+
+    boolean existsByHashInfo(String hashInfo);
 }
