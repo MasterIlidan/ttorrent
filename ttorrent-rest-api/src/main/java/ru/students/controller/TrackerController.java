@@ -1,15 +1,23 @@
 package ru.students.controller;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.apache.tomcat.util.file.ConfigurationSource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import ru.students.entity.Torrent;
 import ru.students.service.TrackerServiceImpl;
 import ru.students.utils.Peers;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.FileSystem;
 import java.util.Map;
 
 
@@ -40,6 +48,7 @@ public class TrackerController {
         return new ResponseEntity<>(torrentHash,
                 HttpStatus.OK);
     }
+
     @DeleteMapping("/deleteTorrent/{hash}")
     public ResponseEntity<String> deleteTorrent(@PathVariable String hash) throws IOException {
         boolean success = trackerService.deleteTorrent(hash);
@@ -62,9 +71,34 @@ public class TrackerController {
         Map<String, Peers> peers = trackerService.getAllCountOfPeers();
         return new ResponseEntity<>(peers, HttpStatus.OK);
     }
+
     @GetMapping("/getSizeOfTracker")
     public ResponseEntity<Double> getSizeOfTracker() throws IOException {
         Double trackerSize = trackerService.getAllTorrentsSize();
         return new ResponseEntity<>(trackerSize, HttpStatus.OK);
+    }
+
+    @GetMapping("/download/{hashInfo}")
+    public ResponseEntity<Resource> downloadTorrentFile(@PathVariable String hashInfo) {
+        try {
+            FileSystemResource torrent = trackerService.getTorrentByHashInfo(hashInfo);
+            Resource resource = new UrlResource(torrent.getURI());
+
+            if (resource.exists() && resource.isReadable()) {
+                return ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
+                        .body(resource);
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+            }
+        } catch (Exception e) {
+            if (e instanceof FileNotFoundException) {
+                log.error("Файл не найден");
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+            log.error("Ошибка при чтении файла");
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }

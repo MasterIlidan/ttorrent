@@ -35,6 +35,7 @@ public class WebSecurityConf {
                         .requestMatchers("/getHash").permitAll()
                         .requestMatchers("/announce").permitAll()
                         .requestMatchers("/deleteTorrent/**").permitAll()
+                        .requestMatchers("/download/**").permitAll()
                         .anyRequest().authenticated())).formLogin(form ->
                         form.loginPage("/login")
                                 .loginProcessingUrl("/login")

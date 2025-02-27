@@ -1,9 +1,11 @@
 package ru.students.service;
 
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.web.multipart.MultipartFile;
 import ru.students.utils.Peers;
 
 import java.io.IOException;
+import java.nio.file.FileSystem;
 import java.util.Map;
 
 public interface TrackerService {
@@ -19,4 +21,6 @@ public interface TrackerService {
     double getAllTorrentsSize() throws IOException;
 
     boolean deleteTorrent(String hash) throws IOException;
+
+    FileSystemResource getTorrentByHashInfo(String hashInfo);
 }

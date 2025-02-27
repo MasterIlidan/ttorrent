@@ -6,6 +6,7 @@ import com.turn.ttorrent.tracker.TrackedTorrent;
 import com.turn.ttorrent.tracker.Tracker;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
@@ -24,6 +25,7 @@ import ru.students.utils.Peers;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -252,6 +254,12 @@ public class TrackerServiceImpl implements TrackerService {
         boolean deleteSuccess = Files.deleteIfExists(Paths.get("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging", torrent.getFileName()));
         log.info("Удаление файла {} торрента {} {}", torrent.getFileName(), torrent.getHashInfo(), deleteSuccess);
         return true;
+    }
+
+    @Override
+    public FileSystemResource getTorrentByHashInfo(String hashInfo) {
+        Torrent torrent = torrentRepository.findByHashInfo(hashInfo);
+        return new FileSystemResource(Paths.get("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging", torrent.getFileName()).toFile());
     }
 
     @PreDestroy
