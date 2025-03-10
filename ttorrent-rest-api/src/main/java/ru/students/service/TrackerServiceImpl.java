@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class TrackerServiceImpl implements TrackerService {
     private final Tracker tracker;
-    public static String STAGE_DIRECTORY = System.getProperty("user.dir") + "/staging";
+    public static String STAGE_DIRECTORY = "./staging";
     private final TorrentRepository torrentRepository;
 
     public TrackerServiceImpl(Tracker tracker, TorrentRepository torrentRepository) {
@@ -145,7 +145,7 @@ public class TrackerServiceImpl implements TrackerService {
         };
 
         double size = 0;
-        File[] files = new File("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging").listFiles(filter);
+        File[] files = new File(STAGE_DIRECTORY).listFiles(filter);
         if (files != null) {
             for (File f : files) {
                 TorrentMetadata torrentMetadata = new TorrentParser().parseFromFile(f);
@@ -250,7 +250,7 @@ public class TrackerServiceImpl implements TrackerService {
         Torrent torrent = torrentRepository.findByHashInfo(hash);
         if (torrent == null) return false;
         torrentRepository.deleteAllByHashInfo(torrent.getHashInfo());
-        boolean deleteSuccess = Files.deleteIfExists(Paths.get("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging", torrent.getFileName()));
+        boolean deleteSuccess = Files.deleteIfExists(Paths.get("./staging", torrent.getFileName()));
         log.info("Удаление файла {} торрента {} {}", torrent.getFileName(), torrent.getHashInfo(), deleteSuccess);
         return true;
     }
@@ -258,7 +258,7 @@ public class TrackerServiceImpl implements TrackerService {
     @Override
     public FileSystemResource getTorrentByHashInfo(String hashInfo) {
         Torrent torrent = torrentRepository.findByHashInfo(hashInfo);
-        return new FileSystemResource(Paths.get("C:\\Users\\MasterIlidan\\IdeaProjects\\ttorrent\\staging", torrent.getFileName()).toFile());
+        return new FileSystemResource(Paths.get("./staging", torrent.getFileName()).toFile());
     }
 
     @PreDestroy
