@@ -1,23 +1,18 @@
 package ru.students.controller;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.tomcat.util.file.ConfigurationSource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import ru.students.entity.Torrent;
 import ru.students.service.TrackerServiceImpl;
-import ru.students.utils.Peers;
+import ru.students.service.model.Peers;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.FileSystem;
 import java.util.Map;
 
 

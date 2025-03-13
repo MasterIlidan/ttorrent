@@ -2,10 +2,9 @@ package ru.students.service;
 
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.web.multipart.MultipartFile;
-import ru.students.utils.Peers;
+import ru.students.service.model.Peers;
 
 import java.io.IOException;
-import java.nio.file.FileSystem;
 import java.util.Map;
 
 public interface TrackerService {

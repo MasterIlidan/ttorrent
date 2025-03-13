@@ -20,7 +20,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import ru.students.entity.Torrent;
 import ru.students.repository.TorrentRepository;
-import ru.students.utils.Peers;
+import ru.students.service.model.Peers;
 
 import java.io.File;
 import java.io.FilenameFilter;

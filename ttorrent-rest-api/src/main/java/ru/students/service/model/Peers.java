@@ -1,4 +1,4 @@
-package ru.students.utils;
+package ru.students.service.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
